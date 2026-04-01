@@ -191,15 +191,14 @@ All of these pieces are in a single repository. The webchat stack handles:
    - `nanobot-websocket-channel/mcp-webchat`
    - `nanobot-websocket-channel/nanobot-webchat`
 
-2. Install the webchat channel plugin and the UI-delivery MCP server into your nanobot environment:
+2. Uncomment `mcp-webchat` and `nanobot-webchat` in `nanobot/pyproject.toml` (marked with `Task 2B`), then sync:
 
    ```terminal
    cd nanobot
-   uv add nanobot-webchat --editable ../nanobot-websocket-channel/nanobot-webchat
-   uv add mcp-webchat --editable ../nanobot-websocket-channel/mcp-webchat
+   uv sync
    ```
 
-   This does two different jobs:
+   These two packages do different jobs:
 
    - `nanobot-webchat` registers the `webchat` channel type in nanobot via a Python entry point
    - `mcp-webchat` provides an MCP tool for sending structured UI payloads back to the active chat
