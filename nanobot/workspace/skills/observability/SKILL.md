@@ -20,6 +20,21 @@ Use the observability MCP tools (`obs_*`) to investigate backend errors, logs, a
 
 ## Investigation Strategy
 
+### When user asks "What went wrong?" or "Check system health"
+
+**One-shot investigation flow:**
+
+1. **`obs_get_recent_errors`** — Get error count and recent errors (time_range="10m" for fresh data)
+2. **`obs_query_logs`** — If errors found, search for more context on the failing service
+3. **Extract trace_id** — From error logs, find the most recent trace_id
+4. **`obs_get_trace`** — Fetch the full trace to see the failure path
+5. **Summarize** — One coherent explanation citing both log evidence AND trace evidence
+
+**Key discrepancy to notice:**
+- Logs/traces show PostgreSQL/SQLAlchemy connection failure
+- But HTTP response status might be misreported (e.g., 404 instead of 500)
+- Point out this mismatch in your summary
+
 ### When user asks about errors
 
 1. **Start with `obs_get_recent_errors`** — Get error count and recent errors for the relevant service
@@ -31,13 +46,6 @@ Use the observability MCP tools (`obs_*`) to investigate backend errors, logs, a
 
 1. **Call `obs_get_service_health`** — Get error rate and request count
 2. **Report status** — "healthy" if no errors, "unhealthy" with error details if errors exist
-
-### When user asks "what went wrong"
-
-1. **Call `obs_get_recent_errors`** for the relevant service and time range
-2. **Look for patterns** — Same error type? Same operation? Same trace?
-3. **If trace_id found** — Call `obs_get_trace` to see the full failure path
-4. **Explain root cause** — Database connection? Authentication? Timeout?
 
 ## Response Guidelines
 

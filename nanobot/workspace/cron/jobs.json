@@ -1,4 +1,100 @@
 {
   "version": 1,
-  "jobs": []
+  "jobs": [
+    {
+      "id": "9b9408ed",
+      "name": "Time for a health check! Ask m",
+      "enabled": true,
+      "schedule": {
+        "kind": "every",
+        "atMs": null,
+        "everyMs": 120000,
+        "expr": null,
+        "tz": null
+      },
+      "payload": {
+        "kind": "agent_turn",
+        "message": "Time for a health check! Ask me to check for recent errors.",
+        "deliver": true,
+        "channel": "webchat",
+        "to": "43b536ac-af5c-4023-b0a0-866cd2b5b18a"
+      },
+      "state": {
+        "nextRunAtMs": 1775071261572,
+        "lastRunAtMs": 1775071120896,
+        "lastStatus": "ok",
+        "lastError": null,
+        "runHistory": [
+          {
+            "runAtMs": 1775070415186,
+            "status": "ok",
+            "durationMs": 10983,
+            "error": null
+          },
+          {
+            "runAtMs": 1775070546170,
+            "status": "ok",
+            "durationMs": 32838,
+            "error": null
+          },
+          {
+            "runAtMs": 1775070699011,
+            "status": "ok",
+            "durationMs": 17203,
+            "error": null
+          },
+          {
+            "runAtMs": 1775070836214,
+            "status": "ok",
+            "durationMs": 25214,
+            "error": null
+          },
+          {
+            "runAtMs": 1775070981430,
+            "status": "ok",
+            "durationMs": 19464,
+            "error": null
+          },
+          {
+            "runAtMs": 1775071120896,
+            "status": "ok",
+            "durationMs": 20676,
+            "error": null
+          }
+        ]
+      },
+      "createdAtMs": 1775070295184,
+      "updatedAtMs": 1775071141572,
+      "deleteAfterRun": false
+    },
+    {
+      "id": "e2448642",
+      "name": "🐾 Health Check: Check backend ",
+      "enabled": true,
+      "schedule": {
+        "kind": "every",
+        "atMs": null,
+        "everyMs": 120000,
+        "expr": null,
+        "tz": null
+      },
+      "payload": {
+        "kind": "agent_turn",
+        "message": "🐾 Health Check: Check backend errors in last 2m, inspect trace if found, post summary to webchat chat 18d04919-4592-4110-948f-8cfcea002f0d",
+        "deliver": true,
+        "channel": "webchat",
+        "to": "18d04919-4592-4110-948f-8cfcea002f0d"
+      },
+      "state": {
+        "nextRunAtMs": 1775071319804,
+        "lastRunAtMs": null,
+        "lastStatus": null,
+        "lastError": null,
+        "runHistory": []
+      },
+      "createdAtMs": 1775071199804,
+      "updatedAtMs": 1775071199804,
+      "deleteAfterRun": false
+    }
+  ]
 }
