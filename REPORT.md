@@ -242,7 +242,121 @@ nanobot-1  | 2026-04-01 17:50:06.262 | INFO     | nanobot.agent.loop:run:280 - A
 
 ## Task 2B — Web client
 
-<!-- Screenshot of a conversation with the agent in the Flutter web app -->
+### WebSocket Channel and Flutter Client Deployment
+
+**Files modified:**
+1. `pyproject.toml` - Added nanobot-websocket-channel workspace members
+2. `nanobot/pyproject.toml` - Added mcp-webchat and nanobot-webchat dependencies
+3. `nanobot/Dockerfile` - Updated to build with workspace dependencies
+4. `nanobot/entrypoint.py` - Uncommented webchat channel and MCP server config
+5. `docker-compose.yml` - Uncommented nanobot-websocket-channel volume, webchat env vars, client-web-flutter service, caddy dependencies
+6. `caddy/Caddyfile` - Uncommented `/ws/chat` and `/flutter*` routes
+
+**Services running:**
+```
+SERVICE          STATUS
+nanobot          Up (webchat channel enabled)
+caddy            Up
+client-web-flutter Built (volume mounted)
+```
+
+**Nanobot logs showing webchat enabled:**
+```
+nanobot-1  | 2026-04-01 18:14:33.432 | INFO | nanobot.channels.manager:_init_channels:58 - WebChat channel enabled
+nanobot-1  | ✓ Channels enabled: webchat
+nanobot-1  | 2026-04-01 18:14:33.857 | INFO | nanobot.channels.manager:_dispatch_outbound:119 - Outbound dispatcher started
+nanobot-1  | 2026-04-01 18:14:33,858 INFO [nanobot_webchat.channel] - WebChat relay listening on 127.0.0.1:8766
+nanobot-1  | 2026-04-01 18:14:33,862 INFO [nanobot_webchat.channel] - WebChat starting on 0.0.0.0:8765
+nanobot-1  | 2026-04-01 18:14:33,866 INFO [websockets.server] - server listening on 0.0.0.0:8765
+nanobot-1  | 2026-04-01 18:14:38.055 | DEBUG | nanobot.agent.tools.mcp:connect_mcp_servers:226 - MCP: registered tool 'mcp_webchat_ui_message' from server 'webchat'
+nanobot-1  | 2026-04-01 18:14:38.056 | INFO | nanobot.agent.tools.mcp:connect_mcp_servers:246 - MCP server 'webchat': connected, 1 tools registered
+```
+
+**Endpoints:**
+- WebSocket: `ws://localhost:42002/ws/chat?access_key=NANOBOT_ACCESS_KEY`
+- Flutter Web UI: `http://localhost:42002/flutter`
+
+### Checkpoint Verification
+
+**Test 1: "What can you do in this system?"**
+
+Response:
+> I'm nanobot 🐈, your personal AI assistant! Here's what I can do in this system:
+>
+> **📁 File & Workspace Management**
+> - Read, write, and edit files
+> - Browse directories and explore project structure
+> - Execute shell commands (with safety limits)
+>
+> **🌐 Web & Information**
+> - Search the web for information
+> - Fetch and extract content from URLs
+> - Send messages with file attachments
+>
+> **⏰ Scheduling & Automation**
+> - Set up reminders and recurring tasks via cron
+> - Manage periodic tasks through heartbeat system
+>
+> **🎓 LMS Integration** (Learning Management System)
+> - Query lab listings, learner rosters, and group performance
+> - Check pass rates, completion rates, and submission timelines
+> - Find top learners and track analytics
+>
+> **🧠 Memory System**
+> - Store long-term facts in MEMORY.md
+> - Log events in HISTORY.md (grep-searchable)
+>
+> **🛠️ Skills Available**
+> - **structured-ui**: Interactive choice menus for webchat
+> - **lms**: Live course data queries
+> - **memory**: Two-layer fact/event storage
+> - **clawhub**: Search/install community skills
+> - **skill-creator**: Build new agent skills
+> - **cron**: Schedule reminders/tasks
+>
+> **🤝 Multi-Agent**
+> - Spawn subagents for complex background tasks
+
+**Test 2: "How is the backend doing? Is it healthy?"**
+
+Response (REAL backend data):
+> I'll check the LMS backend health for you.
+>
+> Yes, the LMS backend is healthy! ✅ It's currently tracking **56 items** with no errors reported.
+
+**Test 3: "Show me the scores" (Structured UI Choice)**
+
+Response showing structured choice UI:
+> I'll check what labs are available first, then show you the scores.
+>
+> Which lab would you like to see scores for?
+>
+> **Structured Choice Payload:**
+> ```json
+> {
+>   "type": "choice",
+>   "content": "",
+>   "options": [
+>     {"label": "Lab 01 – Products, Architecture & Roles", "value": "lab-01"},
+>     {"label": "Lab 02 — Run, Fix, and Deploy a Backend Service", "value": "lab-02"},
+>     {"label": "Lab 03 — Backend API: Explore, Debug, Implement, Deploy", "value": "lab-03"},
+>     {"label": "Lab 04 — Testing, Front-end, and AI Agents", "value": "lab-04"},
+>     {"label": "Lab 05 — Data Pipeline and Analytics Dashboard", "value": "lab-05"},
+>     {"label": "Lab 06 — Build Your Own Agent", "value": "lab-06"},
+>     {"label": "Lab 07 — Build a Client with an AI Coding Agent", "value": "lab-07"},
+>     {"label": "lab-08", "value": "lab-08"}
+>   ]
+> }
+> ```
+>
+> I've sent you an interactive menu to choose which lab you'd like to see scores for. Please select one from the options!
+
+**The structured-ui skill and LMS skill cooperate correctly:**
+- LMS skill calls `lms_labs` to get available labs
+- Provides lab titles as labels and lab IDs as values
+- structured-ui skill renders the choice UI in the Flutter client
+
+---
 
 ## Task 3A — Structured logging
 

@@ -8,19 +8,19 @@ ENV UV_PROJECT_ENVIRONMENT=/opt/nanobot-venv
 
 WORKDIR /app
 
+# Copy root workspace files
 COPY --from=workspace pyproject.toml uv.lock /app/
+
+# Copy all workspace packages needed by nanobot
 COPY --from=workspace mcp /app/mcp
 COPY --from=workspace nanobot-websocket-channel /app/nanobot-websocket-channel
-
 COPY pyproject.toml /app/nanobot/
 
-RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --frozen --no-install-workspace --package nanobot
-
-COPY . /app/nanobot
-
+# Sync nanobot with all workspace dependencies
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --package nanobot
+
+COPY . /app/nanobot
 
 ARG REGISTRY_PREFIX_DOCKER_HUB
 FROM ${REGISTRY_PREFIX_DOCKER_HUB}python:3.14.2-slim-bookworm
