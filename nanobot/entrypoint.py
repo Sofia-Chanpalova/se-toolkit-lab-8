@@ -29,6 +29,9 @@ class Settings(BaseSettings):
     nanobot_lms_backend_url: str = Field(..., alias="NANOBOT_LMS_BACKEND_URL")
     nanobot_lms_api_key: str = Field(..., alias="NANOBOT_LMS_API_KEY")
 
+    nanobot_victorialogs_url: str = Field(..., alias="NANOBOT_VICTORIALOGS_URL")
+    nanobot_victoriatraces_url: str = Field(..., alias="NANOBOT_VICTORIATRACES_URL")
+
     nanobot_access_key: str = Field(..., alias="NANOBOT_ACCESS_KEY")
     nanobot_ui_relay_url: str = Field(default="http://127.0.0.1:8766", alias="NANOBOT_UI_RELAY_URL")
     nanobot_ui_relay_token: str | None = Field(default=None, alias="NANOBOT_UI_RELAY_TOKEN")
@@ -88,6 +91,15 @@ def _resolve_config() -> Config:
             "NANOBOT_UI_RELAY_URL": env.nanobot_ui_relay_url,
             "NANOBOT_UI_RELAY_TOKEN": env.nanobot_ui_relay_token or env.nanobot_access_key,
             **_otel_env(env, "mcp-webchat"),
+        },
+    )
+    config.tools.mcp_servers["obs"] = MCPServerConfig(
+        command="opentelemetry-instrument",
+        args=["python", "-m", "mcp_obs"],
+        env={
+            "NANOBOT_VICTORIALOGS_URL": env.nanobot_victorialogs_url,
+            "NANOBOT_VICTORIATRACES_URL": env.nanobot_victoriatraces_url,
+            **_otel_env(env, "mcp-obs"),
         },
     )
 

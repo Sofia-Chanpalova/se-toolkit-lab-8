@@ -360,15 +360,192 @@ Response showing structured choice UI:
 
 ## Task 3A — Structured logging
 
-<!-- Paste happy-path and error-path log excerpts, VictoriaLogs query screenshot -->
+### Part A — Exploring Structured Logs
+
+**Happy-path logs (PostgreSQL running):**
+
+When asking "What labs are available?", the backend emits structured log events:
+
+```
+backend-1  | 2026-04-01 18:17:47,117 INFO [lms_backend.main] - request_started
+backend-1  | 2026-04-01 18:17:47,215 INFO [lms_backend.auth] - auth_success
+backend-1  | 2026-04-01 18:17:47,243 INFO [lms_backend.db.items] - db_query
+backend-1  | 2026-04-01 18:17:47,611 INFO [lms_backend.main] - request_completed
+backend-1  | INFO: 172.21.0.9:52242 - "GET /items/ HTTP/1.1" 200 OK
+```
+
+Each entry includes:
+- `trace_id` and `span_id` for distributed tracing
+- `resource.service.name=Learning Management Service`
+- `event` name (request_started, auth_success, db_query, request_completed)
+
+**Failure logs (PostgreSQL stopped):**
+
+After stopping PostgreSQL, the same query shows:
+
+```
+backend-1  | 2026-04-01 18:26:53,196 INFO [lms_backend.db.items] - db_query
+backend-1  | 2026-04-01 18:26:53,288 ERROR [lms_backend.db.items] - db_query
+backend-1  | 2026-04-01 18:26:53,289 WARNING [lms_backend.routers.items] - items_list_failed_as_not_found
+```
+
+The ERROR entry includes the full exception:
+```json
+{
+  "event": "db_query",
+  "severity": "ERROR",
+  "error": "(sqlalchemy.dialects.postgresql.asyncpg.InterfaceError): connection is closed",
+  "operation": "select",
+  "table": "item",
+  "trace_id": "931ffab4f828fddafd02b205bfdb7cbd",
+  "span_id": "ee7a6450aa988a8e",
+  "service.name": "Learning Management Service"
+}
+```
+
+**VictoriaLogs Query:**
+
+Query: `_time:1h service.name:"Learning Management Service" severity:ERROR`
+
+Result shows the structured error with full context:
+```json
+{
+  "_msg": "db_query",
+  "error": "(sqlalchemy.dialects.postgresql.asyncpg.InterfaceError) ... connection is closed",
+  "event": "db_query",
+  "operation": "select",
+  "table": "item",
+  "service.name": "Learning Management Service",
+  "severity": "ERROR",
+  "trace_id": "931ffab4f828fddafd02b205bfdb7cbd"
+}
+```
+
+**Comparison:**
+- `docker compose logs` requires grepping through thousands of lines
+- VictoriaLogs with LogsQL filters by `service.name`, `severity`, time range instantly
+- Structured fields enable precise queries like "all db_query errors in the last hour"
+
+---
 
 ## Task 3B — Traces
 
-<!-- Screenshots: healthy trace span hierarchy, error trace -->
+### VictoriaTraces Query
+
+**Services with traces:**
+- Learning Management Service
+- Qwen Code API
+- mcp-lms
+- mcp-obs
+- mcp-webchat
+- nanobot
+
+**Trace Example (Error Trace):**
+
+Query: `GET /select/jaeger/api/traces?service=Learning%20Management%20Service&limit=3`
+
+**Trace ID:** `931ffab4f828fddafd02b205bfdb7cbd` (PostgreSQL connection failure)
+
+**Span Hierarchy:**
+| Span ID | Operation | Duration | Status | Details |
+|---------|-----------|----------|--------|---------|
+| `186e628f67310591` | SELECT db-lab-8 | 66.9ms | ❌ ERROR | `asyncpg.exceptions.InterfaceError: connection is closed` |
+| `da4f6f91eb6356d6` | GET /items/ http send | 0.8ms | 404 | HTTP response |
+| `96514494efbaf5cc` | GET /items/ http send | 0.06ms | - | HTTP response complete |
+
+**Tags on error span:**
+- `db.system`: postgresql
+- `db.statement`: `SELECT item.id, item.type, item.parent_id, item.title, item.description, item.attributes, item.created_at FROM item`
+- `db.user`: postgres
+- `net.peer.name`: postgres
+- `net.peer.port`: 5432
+- `error`: true
+- `otel.status_description`: `<class 'asyncpg.exceptions._base.InterfaceError'>: connection is closed`
+
+**Healthy Trace Example:**
+
+Query: `GET /select/jaeger/api/traces?service=Learning%20Management%20Service&limit=1`
+
+**Trace ID:** `8cf698780f35ef067a64ed2aa6392631` (Successful request)
+
+**Span Hierarchy:**
+| Span ID | Operation | Duration | Status |
+|---------|-----------|----------|--------|
+| `e2e625dc37d14fd0` | GET /items/ | 494ms | ✅ OK |
+| `...` | SELECT db-lab-8 | 27ms | ✅ OK |
+| `...` | auth_success | 98ms | ✅ OK |
+
+**Observations:**
+- Error traces show `error: true` tag with exception details
+- Healthy traces show all spans completing without error tags
+- Trace IDs match between VictoriaLogs and VictoriaTraces (can correlate logs to traces)
+- Span duration helps identify slow operations (e.g., 66ms DB query vs 27ms normal)
+
+---
 
 ## Task 3C — Observability MCP tools
 
-<!-- Paste agent responses to "any errors in the last hour?" under normal and failure conditions -->
+### MCP Server Created: mcp-obs
+
+**Location:** `mcp/mcp-obs/`
+
+**Files created:**
+- `mcp/mcp-obs/pyproject.toml` - Package definition
+- `mcp/mcp-obs/src/mcp_obs/settings.py` - VictoriaLogs/VictoriaTraces URL configuration
+- `mcp/mcp-obs/src/mcp_obs/client.py` - HTTP client for querying observability APIs
+- `mcp/mcp-obs/src/mcp_obs/tools.py` - 5 MCP tools
+- `mcp/mcp-obs/src/mcp_obs/server.py` - FastMCP server setup
+- `mcp/mcp-obs/src/mcp_obs/__init__.py` and `__main__.py` - Module entry points
+
+**Tools registered:**
+| Tool | Purpose |
+|------|---------|
+| `obs_query_logs` | Query VictoriaLogs using LogsQL |
+| `obs_get_recent_errors` | Get recent error logs by service and time range |
+| `obs_get_trace` | Get trace details by ID |
+| `obs_get_service_health` | Get health summary (error count, request count, error rate) |
+| `obs_search_traces` | Search for traces by service/operation |
+
+**Configuration:**
+- Added `mcp-obs` to root `pyproject.toml` workspace members and sources
+- Added `mcp-obs` to `nanobot/pyproject.toml` dependencies
+- Updated `nanobot/entrypoint.py` with `nanobot_victorialogs_url`, `nanobot_victoriatraces_url` settings and obs MCP server config
+- Updated `docker-compose.yml` with `NANOBOT_VICTORIALOGS_URL` and `NANOBOT_VICTORIATRACES_URL` env vars
+
+### Observability Skill
+
+**Location:** `nanobot/workspace/skills/observability/SKILL.md`
+
+**Teaches the agent:**
+- When user asks about errors → use `obs_get_recent_errors` first
+- If trace_id found in logs → use `obs_get_trace` for full request path
+- Summarize findings concisely, don't dump raw JSON
+- Use appropriate time ranges (10m, 1h, 24h) based on user query
+
+### Test: "Any LMS backend errors in the last 10 minutes?"
+
+**Agent response:**
+> Good news! No errors were found in the LMS backend during the last 10 minutes. The service appears to be running smoothly.
+
+**Logs show correct tool usage:**
+```
+Tool call: mcp_obs_obs_get_recent_errors({"service": "Learning Management Service", "time_range": "10m"})
+```
+
+### Test: "Are there any errors in the backend in the last hour?" (after PostgreSQL failure)
+
+**Agent response:**
+> Yes, there was **1 error** in the backend in the last hour:
+>
+> - [2026-04-01T18:26:53.28836352Z] db_query: (sqlalchemy.dialects.postgresql.asyncpg.InterfaceError) connection is closed (trace: 931ffab4...)
+
+The agent successfully:
+1. Used the `obs_get_recent_errors` MCP tool with correct parameters
+2. Queried VictoriaLogs with `severity:ERROR` filter
+3. Formatted the error with timestamp, event type, and trace ID
+4. Provided a concise summary instead of raw JSON
+
+---
 
 ## Task 4A — Multi-step investigation
 
