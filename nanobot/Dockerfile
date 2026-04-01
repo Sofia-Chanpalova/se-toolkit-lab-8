@@ -9,9 +9,10 @@ ENV UV_PROJECT_ENVIRONMENT=/opt/nanobot-venv
 WORKDIR /app
 
 COPY --from=workspace pyproject.toml uv.lock /app/
-COPY pyproject.toml README.md /app/nanobot/
 COPY --from=workspace mcp /app/mcp
 COPY --from=workspace nanobot-websocket-channel /app/nanobot-websocket-channel
+
+COPY pyproject.toml /app/nanobot/
 
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-install-workspace --package nanobot
@@ -31,14 +32,18 @@ ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 ENV LANG=C.UTF-8
 
-RUN groupadd --gid "${APP_GID}" nonroot \
-    && useradd --uid "${APP_UID}" --gid "${APP_GID}" --create-home nonroot
+# Skip user creation if running as root (APP_UID=0)
+RUN if [ "${APP_UID}" != "0" ]; then \
+      groupadd --gid "${APP_GID}" nonroot \
+      && useradd --uid "${APP_UID}" --gid "${APP_GID}" --create-home nonroot; \
+    fi
 
 COPY --from=builder --chown=${APP_UID}:${APP_GID} /opt/nanobot-venv /opt/nanobot-venv
 COPY --from=builder --chown=${APP_UID}:${APP_GID} /app /app
 
 ENV PATH="/opt/nanobot-venv/bin:$PATH"
 
+# Use nonroot user if it exists, otherwise stay as root
 USER nonroot
 WORKDIR /app/nanobot
 
